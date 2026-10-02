@@ -20,6 +20,8 @@ reports/       generated CSV snapshots, one per retailer — open these on GitHu
 
 [`reports/newegg_latest.csv`](reports/newegg_latest.csv) and [`reports/amazon_latest.csv`](reports/amazon_latest.csv) each hold the most recent price/rating snapshot per product, one row each, sorted cheapest first. GitHub renders `.csv` files as a sortable table right in the browser — click a file above to view it that way instead of as raw text. Both are regenerated from the database on every scheduled scrape.
 
+Each row also has a `review_search_url` column: a YouTube search link built from that exact product's name (e.g. "Corsair Vengeance 32GB DDR5 6000 review"), so clicking it from the table pulls up real people's review videos for that kit. GitHub's CSV viewer renders a table but doesn't auto-link URLs in a cell, so you'll need to copy/open the link rather than click it directly in the preview — it's still plain text in the raw file, which keeps this dependency-free (no YouTube API key, no per-product video matching to maintain).
+
 ## Running the scrapers locally
 
 ```bash

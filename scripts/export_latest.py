@@ -16,6 +16,7 @@ from __future__ import annotations
 import csv
 import sqlite3
 from pathlib import Path
+from urllib.parse import quote_plus
 
 from scrapers.amazon import EXTRA_NOISE_KEYWORDS as AMAZON_EXTRA_NOISE_KEYWORDS
 from scrapers.common import is_noise
@@ -52,7 +53,7 @@ WHERE p.source = ?
 ORDER BY ph.price ASC
 """
 
-HEADER = [
+DB_HEADER = [
     "source",
     "memory_type",
     "name",
@@ -65,6 +66,16 @@ HEADER = [
     "url",
 ]
 
+# review_search_url isn't a DB column - it's a YouTube search link built from
+# the product name at export time, so clicking it in the table shows real
+# people's review videos for that kit without needing an API key or any
+# per-product lookup/matching step.
+REPORT_HEADER = DB_HEADER + ["review_search_url"]
+
+
+def review_search_url(name: str) -> str:
+    return "https://www.youtube.com/results?search_query=" + quote_plus(f"{name} review")
+
 
 def export_latest(source: str, db_path: Path = DB_PATH, output_dir: Path = OUTPUT_DIR) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -72,14 +83,15 @@ def export_latest(source: str, db_path: Path = DB_PATH, output_dir: Path = OUTPU
     rows = conn.execute(LATEST_QUERY, (source,)).fetchall()
     conn.close()
 
-    name_index = HEADER.index("name")
+    name_index = DB_HEADER.index("name")
     extra_keywords = SOURCE_NOISE_KEYWORDS.get(source, ())
     rows = [row for row in rows if not is_noise(row[name_index], extra_keywords)]
+    rows = [(*row, review_search_url(row[name_index])) for row in rows]
 
     out_path = output_dir / f"{source}_latest.csv"
     with out_path.open("w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(HEADER)
+        writer.writerow(REPORT_HEADER)
         writer.writerows(rows)
 
     return out_path
