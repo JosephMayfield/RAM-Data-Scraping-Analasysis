@@ -40,9 +40,11 @@ Editing this file (or the database) doesn't feed back into anything — these ar
 
 ## Daily archives
 
-`reports/archive/<source>_<YYYY-MM-DD>.csv` is a permanent copy of that day's snapshot table — the same rows `reports/<source>_latest.csv` had on that specific date, including the cross-retailer price columns, never overwritten once the day has passed. This is the "what did the leaderboard look like on March 3rd" file; `_history.csv` is the "every scrape as one long log" file — same underlying data, organized differently depending on whether you want one day's full table or the whole timeline.
+`reports/archive/<YYYY-MM>/<YYYY-MM-DD>.csv` is a permanent snapshot of that exact day, never overwritten once the day has passed. This is the "what did the leaderboard look like on March 3rd" file; `_history.csv` is the "every scrape as one long log" file — same underlying data, organized differently depending on whether you want one day's full table or the whole timeline.
 
-Re-running the workflow more than once on the same day just overwrites that day's archive file rather than creating a duplicate. Expect roughly 365 × 2 × 3 ≈ 2,200 small archive files by the end of the two-year run — browsing that folder's file list on GitHub won't be pleasant after a year or so, but any single day's file is still instantly reachable by its exact filename/date.
+Unlike the per-retailer `_latest.csv`/`_history.csv` files, each day's archive combines all three retailers into one file (every row still has its own `source` column) and makes the price columns fully symmetric: `newegg_price`, `amazon_price`, and `pcpartpicker_price` all appear on every row (a row's own retailer just repeats its `price` column), sorted by price across all three together — a genuine single cross-site leaderboard for that day, rather than three separate tables.
+
+This also keeps the folder manageable: 1 file/day instead of 3 (~730 total over two years instead of ~2,200), nested under a year-month subfolder so each folder holds about 30 files rather than all of them sitting in one flat list. Re-running the workflow more than once on the same day overwrites that day's file rather than duplicating it.
 
 ## Running the scrapers locally
 
@@ -54,7 +56,7 @@ python -m scrapers.amazon       # scrapes DDR4 + DDR5 listings from Amazon
 python -m scrapers.pcpartpicker # scrapes DDR4 + DDR5 listings from PCPartPicker
 python -m scripts.export_latest # regenerates reports/*_latest.csv and .md from the db
 python -m scripts.export_history # regenerates reports/*_history.csv (full history) from the db
-python -m scripts.export_archive # writes today's reports/archive/*_<date>.csv snapshot files
+python -m scripts.export_archive # writes today's reports/archive/<YYYY-MM>/<date>.csv snapshot
 ```
 
 Newegg and Amazon each search for DDR4/DDR5 desktop memory directly. PCPartPicker lists all memory in one combined category instead of splitting by generation at the URL level, so its scraper detects DDR4 vs DDR5 from each product's own name and skips anything that names neither (older DDR3 kits, mislabeled rows). All three filter out non-RAM-kit noise: prebuilt PCs and laptop SODIMMs everywhere, unrelated flash drive/SD card results on Amazon, and ECC/registered server memory on PCPartPicker. A separate pass to pull individual customer reviews (rather than just aggregate rating/count) comes next.
