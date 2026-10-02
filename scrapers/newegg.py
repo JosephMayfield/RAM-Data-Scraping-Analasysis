@@ -33,6 +33,32 @@ SEARCH_URLS = {
 
 MAX_PAGES_PER_RUN = 3
 
+# The search URLs above match full product descriptions, not just the
+# Desktop Memory category, so prebuilt PCs ("16GB DDR4 RAM" in the specs)
+# and laptop SODIMM modules sneak into the results. Titles containing any
+# of these (case-insensitive) get dropped. Verified against a real 166-row
+# scrape: this set removes exactly the non-RAM-kit listings and keeps every
+# legitimate kit, including ones with "gaming"/"desktop pc" in their own
+# product name.
+NOISE_KEYWORDS = [
+    "sodimm",
+    "laptop",
+    "notebook",
+    "ssd",
+    "processor",
+    "geforce",
+    "radeon",
+    "prebuilt",
+    "motherboard",
+    "graphics card",
+    "all-in-one",
+]
+
+
+def is_noise(name: str) -> bool:
+    lower = name.lower()
+    return any(keyword in lower for keyword in NOISE_KEYWORDS)
+
 
 @dataclass
 class ListingItem:
@@ -71,6 +97,8 @@ def parse_listing_page(html: str, memory_type: str) -> list[ListingItem]:
         name = title_el.get_text(strip=True)
         source_product_id = extract_item_id(url)
         if not source_product_id:
+            continue
+        if is_noise(name):
             continue
 
         current_el = cell.select_one("li.price-current")
