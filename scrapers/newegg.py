@@ -8,6 +8,17 @@ anti-bot challenge page instead of real results if it doesn't like the
 request. If a run comes back with 0 listings saved, open one of the
 SEARCH_URLS below in a real browser, view source on a product tile, and
 update the CSS selectors in `parse_listing_page`.
+
+TODO: rating extraction is confirmed working (fixed against real markup -
+see the `i.rating`/`aria-label` lookup below), but as of 2026-10-02 it's
+only populating for DDR5 listings: 89/106 DDR5 products got a rating vs
+0/80 DDR4 products (review_count works fine for both, so this isn't
+"products lacking reviews" - the split is too clean, 100% on one side and
+0% on the other, to be anything but the DDR4 search page serving
+different rating markup than DDR5's). Need a view-source snippet from
+https://www.newegg.com/p/pl?d=ddr4+desktop+memory (search for
+"item-rating") to see what's actually different and fix it the same way
+the original rating bug got fixed.
 """
 from __future__ import annotations
 
