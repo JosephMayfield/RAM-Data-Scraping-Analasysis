@@ -11,16 +11,19 @@ scrapers/      common.py (shared data shape, DB writes, resilient pagination) pl
                one module per retailer: newegg.py, amazon.py, pcpartpicker.py
 db/            SQLite schema + init script
 data/          ram_data.db lives here (committed, so price history accumulates in git)
-scripts/       export_latest.py turns the db into human-readable CSV tables
-reports/       generated CSV snapshots, one per retailer — open these on GitHub to see a live table
+scripts/       export_latest.py turns the db into human-readable CSV + Markdown tables
+reports/       generated CSV + Markdown snapshots, one pair per retailer
 .github/workflows/   scheduled scrapes via GitHub Actions
 ```
 
 ## Latest prices tables
 
-[`reports/newegg_latest.csv`](reports/newegg_latest.csv), [`reports/amazon_latest.csv`](reports/amazon_latest.csv), and [`reports/pcpartpicker_latest.csv`](reports/pcpartpicker_latest.csv) each hold the most recent price/rating snapshot per product, one row each, sorted cheapest first. GitHub renders `.csv` files as a sortable table right in the browser — click a file above to view it that way instead of as raw text. All three are regenerated from the database on every scheduled scrape.
+Each retailer gets two generated files, regenerated from the database on every scheduled scrape:
 
-Each row also has a `review_search_url` column: a YouTube search link built from that exact product's name (e.g. "Corsair Vengeance 32GB DDR5 6000 review"), so clicking it from the table pulls up real people's review videos for that kit. GitHub's CSV viewer renders a table but doesn't auto-link URLs in a cell, so you'll need to copy/open the link rather than click it directly in the preview — it's still plain text in the raw file, which keeps this dependency-free (no YouTube API key, no per-product video matching to maintain).
+- `reports/<source>_latest.csv` — the raw data (one row per product, cheapest first). GitHub renders `.csv` as a sortable table, but CSV cells are plain text, so a product's URL or its `review_search_url` (a YouTube search link for that exact product, e.g. "Corsair Vengeance 32GB DDR5 6000 review") shows up as inert text, not a clickable link — that's a CSV format limitation, not something GitHub's viewer chooses to skip.
+- `reports/<source>_latest.md` — the same data as a Markdown table, with the product name and a "Search reviews" link rendered as real clickable links (GitHub renders Markdown tables with working `[text](url)` links). This is the one to open for browsing; use the `.csv` for loading into a spreadsheet or pandas.
+
+So: [`newegg_latest.md`](reports/newegg_latest.md) / [`.csv`](reports/newegg_latest.csv), [`amazon_latest.md`](reports/amazon_latest.md) / [`.csv`](reports/amazon_latest.csv), [`pcpartpicker_latest.md`](reports/pcpartpicker_latest.md) / [`.csv`](reports/pcpartpicker_latest.csv).
 
 ## Running the scrapers locally
 
@@ -30,7 +33,7 @@ python -m db.init_db            # creates data/ram_data.db if it doesn't exist
 python -m scrapers.newegg       # scrapes DDR4 + DDR5 listings from Newegg
 python -m scrapers.amazon       # scrapes DDR4 + DDR5 listings from Amazon
 python -m scrapers.pcpartpicker # scrapes DDR4 + DDR5 listings from PCPartPicker
-python -m scripts.export_latest # regenerates reports/*_latest.csv from the db
+python -m scripts.export_latest # regenerates reports/*_latest.csv and .md from the db
 ```
 
 Newegg and Amazon each search for DDR4/DDR5 desktop memory directly. PCPartPicker lists all memory in one combined category instead of splitting by generation at the URL level, so its scraper detects DDR4 vs DDR5 from each product's own name and skips anything that names neither (older DDR3 kits, mislabeled rows). All three filter out non-RAM-kit noise: prebuilt PCs and laptop SODIMMs everywhere, unrelated flash drive/SD card results on Amazon, and ECC/registered server memory on PCPartPicker. A separate pass to pull individual customer reviews (rather than just aggregate rating/count) comes next.
