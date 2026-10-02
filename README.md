@@ -11,8 +11,8 @@ scrapers/      common.py (shared data shape, DB writes, resilient pagination) pl
                one module per retailer: newegg.py, amazon.py, pcpartpicker.py
 db/            SQLite schema + init script
 data/          ram_data.db lives here (committed, so price history accumulates in git)
-scripts/       export_latest.py turns the db into human-readable CSV + Markdown tables
-reports/       generated CSV + Markdown snapshots, one pair per retailer
+scripts/       export_latest.py / export_history.py turn the db into human-readable files
+reports/       generated snapshot (CSV+MD) and full-history (CSV) files, per retailer
 .github/workflows/   scheduled scrapes via GitHub Actions
 ```
 
@@ -29,6 +29,14 @@ So: [`newegg_latest.md`](reports/newegg_latest.md) / [`.csv`](reports/newegg_lat
 
 Each table also carries the other two retailers' prices for the closest-matching configuration, e.g. `newegg_latest.csv` has `amazon_price`/`amazon_url` and `pcpartpicker_price`/`pcpartpicker_url` columns alongside Newegg's own price. There's no shared product ID between these sites, so `scripts/match.py` matches listings by parsing (brand, total capacity, speed) out of each product's name — e.g. "Corsair Vengeance 32GB (2 x 16GB) DDR5 6000" matches "CORSAIR Vengeance RGB 32GB (2x16GB) DDR5 6000MHz" even though the wording differs. **This is a best-effort "comparable configuration" match, not a guarantee of the exact same SKU** — it can't tell apart two kits with the same brand/capacity/speed but a different CAS latency or heatspreader color. A blank cross-site column means either that retailer has no matching configuration right now, or the match just couldn't be parsed from the name — not necessarily that it's unavailable there.
 
+## Full price history
+
+`data/ram_data.db` (the SQLite database everything is built from) is a binary file — GitHub can't render its contents, and there's no way to make that browsable in-page. `reports/<source>_history.csv` is the readable version: every price/rating snapshot ever recorded for that retailer, not just today's, ordered oldest-first. [`newegg_history.csv`](reports/newegg_history.csv), [`amazon_history.csv`](reports/amazon_history.csv), [`pcpartpicker_history.csv`](reports/pcpartpicker_history.csv).
+
+This is CSV-only (no Markdown companion) and intentionally append-only (new rows added at the end, old ones never reordered) — over a two-year daily scrape this will grow to a lot of rows, and a growing Markdown table isn't something GitHub renders well at that scale. Eventually (not yet, but expect it before the two years are up) this file will likely exceed GitHub's in-browser file-preview size limit; at that point viewing it means downloading it rather than opening it in the browser tab. That's expected, not a bug.
+
+Editing this file (or the database) doesn't feed back into anything — these are one-way generated exports. If you want to actually edit the underlying data directly, open `data/ram_data.db` with a local SQLite GUI tool (e.g. [DB Browser for SQLite](https://sqlitebrowser.org/), free) rather than editing the generated reports.
+
 ## Running the scrapers locally
 
 ```bash
@@ -38,6 +46,7 @@ python -m scrapers.newegg       # scrapes DDR4 + DDR5 listings from Newegg
 python -m scrapers.amazon       # scrapes DDR4 + DDR5 listings from Amazon
 python -m scrapers.pcpartpicker # scrapes DDR4 + DDR5 listings from PCPartPicker
 python -m scripts.export_latest # regenerates reports/*_latest.csv and .md from the db
+python -m scripts.export_history # regenerates reports/*_history.csv (full history) from the db
 ```
 
 Newegg and Amazon each search for DDR4/DDR5 desktop memory directly. PCPartPicker lists all memory in one combined category instead of splitting by generation at the URL level, so its scraper detects DDR4 vs DDR5 from each product's own name and skips anything that names neither (older DDR3 kits, mislabeled rows). All three filter out non-RAM-kit noise: prebuilt PCs and laptop SODIMMs everywhere, unrelated flash drive/SD card results on Amazon, and ECC/registered server memory on PCPartPicker. A separate pass to pull individual customer reviews (rather than just aggregate rating/count) comes next.
