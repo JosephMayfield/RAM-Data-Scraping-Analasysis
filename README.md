@@ -25,7 +25,7 @@ reports/       generated CSV snapshots — open these on GitHub to see a live ta
 pip install -r requirements.txt
 python -m db.init_db          # creates data/ram_data.db if it doesn't exist
 python -m scrapers.newegg     # scrapes DDR4 + DDR5 listings, appends a price_history snapshot
-python scripts/export_latest.py   # regenerates reports/newegg_latest.csv from the db
+python -m scripts.export_latest   # regenerates reports/newegg_latest.csv from the db
 ```
 
 `scrapers/newegg.py` currently scrapes product listing pages (price, rating, review count) for DDR4 and DDR5 desktop memory. A separate pass to pull individual customer reviews, plus Amazon and PCPartPicker scrapers, comes next.

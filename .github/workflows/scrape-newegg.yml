@@ -24,7 +24,7 @@ jobs:
 
       - run: python -m scrapers.newegg
 
-      - run: python scripts/export_latest.py
+      - run: python -m scripts.export_latest
 
       - name: Commit updated data
         run: |
