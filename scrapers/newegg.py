@@ -59,10 +59,14 @@ def parse_listing_page(html: str, memory_type: str) -> list[ListingItem]:
         was_el = cell.select_one("li.price-was")
         list_price = parse_price(was_el.get_text(" ", strip=True)) if was_el else None
 
+        # The star rating lives in the nested <i>'s aria-label (e.g.
+        # 'rated 4.5 out of 5'), not the outer <a class="item-rating">'s
+        # title attribute (which is just "Rating + 4.5" - never matches
+        # "X out of 5" and was silently leaving every rating blank).
         rating = None
-        rating_el = cell.select_one("a.item-rating")
-        if rating_el and rating_el.get("title"):
-            match = re.search(r"([\d.]+) out of 5", rating_el["title"])
+        rating_icon_el = cell.select_one("a.item-rating i.rating")
+        if rating_icon_el and rating_icon_el.get("aria-label"):
+            match = re.search(r"([\d.]+)\s*out of\s*5", rating_icon_el["aria-label"], re.IGNORECASE)
             if match:
                 rating = float(match.group(1))
 
