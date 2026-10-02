@@ -11,8 +11,9 @@ scrapers/      common.py (shared data shape, DB writes, resilient pagination) pl
                one module per retailer: newegg.py, amazon.py, pcpartpicker.py
 db/            SQLite schema + init script
 data/          ram_data.db lives here (committed, so price history accumulates in git)
-scripts/       export_latest.py / export_history.py turn the db into human-readable files
-reports/       generated snapshot (CSV+MD) and full-history (CSV) files, per retailer
+scripts/       export_latest.py / export_history.py / export_archive.py turn the db into
+               human-readable files
+reports/       generated snapshot (CSV+MD), full-history (CSV), and daily archive (CSV) files
 .github/workflows/   scheduled scrapes via GitHub Actions
 ```
 
@@ -37,6 +38,12 @@ This is CSV-only (no Markdown companion) and intentionally append-only (new rows
 
 Editing this file (or the database) doesn't feed back into anything — these are one-way generated exports. If you want to actually edit the underlying data directly, open `data/ram_data.db` with a local SQLite GUI tool (e.g. [DB Browser for SQLite](https://sqlitebrowser.org/), free) rather than editing the generated reports.
 
+## Daily archives
+
+`reports/archive/<source>_<YYYY-MM-DD>.csv` is a permanent copy of that day's snapshot table — the same rows `reports/<source>_latest.csv` had on that specific date, including the cross-retailer price columns, never overwritten once the day has passed. This is the "what did the leaderboard look like on March 3rd" file; `_history.csv` is the "every scrape as one long log" file — same underlying data, organized differently depending on whether you want one day's full table or the whole timeline.
+
+Re-running the workflow more than once on the same day just overwrites that day's archive file rather than creating a duplicate. Expect roughly 365 × 2 × 3 ≈ 2,200 small archive files by the end of the two-year run — browsing that folder's file list on GitHub won't be pleasant after a year or so, but any single day's file is still instantly reachable by its exact filename/date.
+
 ## Running the scrapers locally
 
 ```bash
@@ -47,6 +54,7 @@ python -m scrapers.amazon       # scrapes DDR4 + DDR5 listings from Amazon
 python -m scrapers.pcpartpicker # scrapes DDR4 + DDR5 listings from PCPartPicker
 python -m scripts.export_latest # regenerates reports/*_latest.csv and .md from the db
 python -m scripts.export_history # regenerates reports/*_history.csv (full history) from the db
+python -m scripts.export_archive # writes today's reports/archive/*_<date>.csv snapshot files
 ```
 
 Newegg and Amazon each search for DDR4/DDR5 desktop memory directly. PCPartPicker lists all memory in one combined category instead of splitting by generation at the URL level, so its scraper detects DDR4 vs DDR5 from each product's own name and skips anything that names neither (older DDR3 kits, mislabeled rows). All three filter out non-RAM-kit noise: prebuilt PCs and laptop SODIMMs everywhere, unrelated flash drive/SD card results on Amazon, and ECC/registered server memory on PCPartPicker. A separate pass to pull individual customer reviews (rather than just aggregate rating/count) comes next.

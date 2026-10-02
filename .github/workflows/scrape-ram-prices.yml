@@ -42,6 +42,9 @@ jobs:
       - run: python -m scripts.export_history
         if: always()
 
+      - run: python -m scripts.export_archive
+        if: always()
+
       - name: Commit updated data
         if: always()
         run: |
