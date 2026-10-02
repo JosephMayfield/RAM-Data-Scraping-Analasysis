@@ -33,6 +33,9 @@ jobs:
       - run: python -m scrapers.amazon
         continue-on-error: true
 
+      - run: python -m scrapers.pcpartpicker
+        continue-on-error: true
+
       - run: python -m scripts.export_latest
         if: always()
 

@@ -20,6 +20,7 @@ from urllib.parse import quote_plus
 
 from scrapers.amazon import EXTRA_NOISE_KEYWORDS as AMAZON_EXTRA_NOISE_KEYWORDS
 from scrapers.common import is_noise
+from scrapers.pcpartpicker import EXTRA_NOISE_KEYWORDS as PCPARTPICKER_EXTRA_NOISE_KEYWORDS
 
 DB_PATH = Path(__file__).parent.parent / "data" / "ram_data.db"
 OUTPUT_DIR = Path(__file__).parent.parent / "reports"
@@ -28,6 +29,7 @@ OUTPUT_DIR = Path(__file__).parent.parent / "reports"
 SOURCE_NOISE_KEYWORDS = {
     "newegg": (),
     "amazon": AMAZON_EXTRA_NOISE_KEYWORDS,
+    "pcpartpicker": PCPARTPICKER_EXTRA_NOISE_KEYWORDS,
 }
 
 LATEST_QUERY = """
