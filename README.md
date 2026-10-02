@@ -25,6 +25,10 @@ Each retailer gets two generated files, regenerated from the database on every s
 
 So: [`newegg_latest.md`](reports/newegg_latest.md) / [`.csv`](reports/newegg_latest.csv), [`amazon_latest.md`](reports/amazon_latest.md) / [`.csv`](reports/amazon_latest.csv), [`pcpartpicker_latest.md`](reports/pcpartpicker_latest.md) / [`.csv`](reports/pcpartpicker_latest.csv).
 
+### Cross-retailer price columns
+
+Each table also carries the other two retailers' prices for the closest-matching configuration, e.g. `newegg_latest.csv` has `amazon_price`/`amazon_url` and `pcpartpicker_price`/`pcpartpicker_url` columns alongside Newegg's own price. There's no shared product ID between these sites, so `scripts/match.py` matches listings by parsing (brand, total capacity, speed) out of each product's name — e.g. "Corsair Vengeance 32GB (2 x 16GB) DDR5 6000" matches "CORSAIR Vengeance RGB 32GB (2x16GB) DDR5 6000MHz" even though the wording differs. **This is a best-effort "comparable configuration" match, not a guarantee of the exact same SKU** — it can't tell apart two kits with the same brand/capacity/speed but a different CAS latency or heatspreader color. A blank cross-site column means either that retailer has no matching configuration right now, or the match just couldn't be parsed from the name — not necessarily that it's unavailable there.
+
 ## Running the scrapers locally
 
 ```bash
