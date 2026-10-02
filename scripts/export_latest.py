@@ -5,11 +5,11 @@ this gives a human-readable view of the dataset without anyone needing to
 open the SQLite file. Runs after each scrape so the table in reports/
 always reflects the latest data.
 
-Non-RAM-kit noise (prebuilt PCs, laptop SODIMMs) that was scraped before
-scrapers/newegg.py started filtering it out gets dropped here too, so old
-rows already in the database don't linger in the generated table. Run as
-`python -m scripts.export_latest` so the `scrapers` package import below
-resolves.
+Non-RAM-kit noise (prebuilt PCs, laptop SODIMMs, unrelated storage
+products) that was scraped before a scraper started filtering it out of
+new results gets dropped here too, so old rows already in the database
+don't linger in the generated table. Run as `python -m
+scripts.export_latest` so the `scrapers` package import below resolves.
 """
 from __future__ import annotations
 
@@ -17,12 +17,17 @@ import csv
 import sqlite3
 from pathlib import Path
 
-from scrapers.newegg import is_noise
+from scrapers.amazon import EXTRA_NOISE_KEYWORDS as AMAZON_EXTRA_NOISE_KEYWORDS
+from scrapers.common import is_noise
 
 DB_PATH = Path(__file__).parent.parent / "data" / "ram_data.db"
 OUTPUT_DIR = Path(__file__).parent.parent / "reports"
 
-SOURCES = ["newegg"]
+# Each source's extra noise keywords, on top of common.BASE_NOISE_KEYWORDS.
+SOURCE_NOISE_KEYWORDS = {
+    "newegg": (),
+    "amazon": AMAZON_EXTRA_NOISE_KEYWORDS,
+}
 
 LATEST_QUERY = """
 SELECT
@@ -68,7 +73,8 @@ def export_latest(source: str, db_path: Path = DB_PATH, output_dir: Path = OUTPU
     conn.close()
 
     name_index = HEADER.index("name")
-    rows = [row for row in rows if not is_noise(row[name_index])]
+    extra_keywords = SOURCE_NOISE_KEYWORDS.get(source, ())
+    rows = [row for row in rows if not is_noise(row[name_index], extra_keywords)]
 
     out_path = output_dir / f"{source}_latest.csv"
     with out_path.open("w", newline="") as f:
@@ -80,7 +86,7 @@ def export_latest(source: str, db_path: Path = DB_PATH, output_dir: Path = OUTPU
 
 
 def main() -> None:
-    for source in SOURCES:
+    for source in SOURCE_NOISE_KEYWORDS:
         path = export_latest(source)
         print(f"Wrote {path}")
 

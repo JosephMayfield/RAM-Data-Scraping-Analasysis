@@ -14,14 +14,11 @@ from __future__ import annotations
 import argparse
 import re
 import sqlite3
-from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Optional
 
 from bs4 import BeautifulSoup
 
-from scrapers.common import make_session, polite_get
+from scrapers.common import ListingItem, is_noise, make_session, parse_price, polite_get, save_items
 
 DB_PATH = Path(__file__).parent.parent / "data" / "ram_data.db"
 
@@ -33,53 +30,8 @@ SEARCH_URLS = {
 
 MAX_PAGES_PER_RUN = 3
 
-# The search URLs above match full product descriptions, not just the
-# Desktop Memory category, so prebuilt PCs ("16GB DDR4 RAM" in the specs)
-# and laptop SODIMM modules sneak into the results. Titles containing any
-# of these (case-insensitive) get dropped. Verified against a real 166-row
-# scrape: this set removes exactly the non-RAM-kit listings and keeps every
-# legitimate kit, including ones with "gaming"/"desktop pc" in their own
-# product name.
-NOISE_KEYWORDS = [
-    "sodimm",
-    "laptop",
-    "notebook",
-    "ssd",
-    "processor",
-    "geforce",
-    "radeon",
-    "prebuilt",
-    "motherboard",
-    "graphics card",
-    "all-in-one",
-]
 
-
-def is_noise(name: str) -> bool:
-    lower = name.lower()
-    return any(keyword in lower for keyword in NOISE_KEYWORDS)
-
-
-@dataclass
-class ListingItem:
-    source_product_id: str
-    name: str
-    url: str
-    price: Optional[float]
-    list_price: Optional[float]
-    rating: Optional[float]
-    review_count: Optional[int]
-    memory_type: str
-
-
-def parse_price(text: str) -> Optional[float]:
-    if not text:
-        return None
-    cleaned = re.sub(r"[^\d.]", "", text)
-    return float(cleaned) if cleaned else None
-
-
-def extract_item_id(url: str) -> Optional[str]:
+def extract_item_id(url: str) -> str | None:
     match = re.search(r"/p/([A-Za-z0-9]+)", url)
     return match.group(1) if match else None
 
@@ -123,6 +75,7 @@ def parse_listing_page(html: str, memory_type: str) -> list[ListingItem]:
 
         items.append(
             ListingItem(
+                source="newegg",
                 source_product_id=source_product_id,
                 name=name,
                 url=url,
@@ -135,48 +88,6 @@ def parse_listing_page(html: str, memory_type: str) -> list[ListingItem]:
         )
 
     return items
-
-
-def save_items(conn: sqlite3.Connection, items: Iterable[ListingItem]) -> None:
-    now = datetime.now(timezone.utc).isoformat()
-
-    for item in items:
-        conn.execute(
-            """
-            INSERT INTO products (source, source_product_id, name, memory_type, url, first_seen, last_seen)
-            VALUES ('newegg', ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(source, source_product_id) DO UPDATE SET
-                name = excluded.name,
-                url = excluded.url,
-                last_seen = excluded.last_seen
-            """,
-            (item.source_product_id, item.name, item.memory_type, item.url, now, now),
-        )
-
-        row = conn.execute(
-            "SELECT id FROM products WHERE source = 'newegg' AND source_product_id = ?",
-            (item.source_product_id,),
-        ).fetchone()
-        product_id = row[0]
-
-        conn.execute(
-            """
-            INSERT INTO price_history
-                (product_id, price, list_price, in_stock, rating, review_count, scraped_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                product_id,
-                item.price,
-                item.list_price,
-                int(item.price is not None),
-                item.rating,
-                item.review_count,
-                now,
-            ),
-        )
-
-    conn.commit()
 
 
 def scrape(memory_type: str, base_url: str, max_pages: int) -> list[ListingItem]:

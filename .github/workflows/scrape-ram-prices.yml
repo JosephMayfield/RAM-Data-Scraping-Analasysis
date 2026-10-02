@@ -1,4 +1,4 @@
-name: Scrape Newegg RAM prices
+name: Scrape RAM prices
 
 on:
   schedule:
@@ -24,6 +24,8 @@ jobs:
 
       - run: python -m scrapers.newegg
 
+      - run: python -m scrapers.amazon
+
       - run: python -m scripts.export_latest
 
       - name: Commit updated data
@@ -31,5 +33,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/ram_data.db reports/
-          git diff --cached --quiet || git commit -m "Daily Newegg RAM price scrape"
+          git diff --cached --quiet || git commit -m "Daily RAM price scrape"
           git push
