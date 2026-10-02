@@ -18,7 +18,7 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from scrapers.common import ListingItem, is_noise, make_session, parse_price, polite_get, save_items
+from scrapers.common import ListingItem, is_noise, parse_price, save_items, scrape_search_pages
 
 DB_PATH = Path(__file__).parent.parent / "data" / "ram_data.db"
 
@@ -90,21 +90,6 @@ def parse_listing_page(html: str, memory_type: str) -> list[ListingItem]:
     return items
 
 
-def scrape(memory_type: str, base_url: str, max_pages: int) -> list[ListingItem]:
-    session = make_session()
-    all_items: list[ListingItem] = []
-
-    for page in range(1, max_pages + 1):
-        page_url = base_url if page == 1 else f"{base_url}&page={page}"
-        response = polite_get(session, page_url)
-        items = parse_listing_page(response.text, memory_type)
-        if not items:
-            break
-        all_items.extend(items)
-
-    return all_items
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Scrape Newegg DDR4/DDR5 RAM listings.")
     parser.add_argument("--db", type=Path, default=DB_PATH)
@@ -116,7 +101,7 @@ def main() -> None:
 
     total = 0
     for memory_type, url in SEARCH_URLS.items():
-        items = scrape(memory_type, url, args.max_pages)
+        items = scrape_search_pages(memory_type, url, args.max_pages, parse_listing_page)
         save_items(conn, items)
         total += len(items)
         print(f"{memory_type}: saved {len(items)} listings")

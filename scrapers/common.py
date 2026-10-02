@@ -10,7 +10,7 @@ import sqlite3
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Iterable, Optional, Sequence
+from typing import Callable, Iterable, Optional, Sequence
 
 import requests
 
@@ -48,6 +48,41 @@ def polite_get(
     response = session.get(url, timeout=15, **kwargs)
     response.raise_for_status()
     return response
+
+
+def scrape_search_pages(
+    memory_type: str,
+    base_url: str,
+    max_pages: int,
+    parse_page: Callable[[str, str], list["ListingItem"]],
+    page_param: str = "page",
+    min_delay: float = 2.0,
+    max_delay: float = 5.0,
+) -> list["ListingItem"]:
+    """Fetch and parse up to `max_pages` of search results, stopping early
+    on an empty page (end of real results) or a request failure (bot-block
+    page, rate limit, transient outage, ...). A blocked/failed page is
+    treated the same as having reached the end of results rather than
+    crashing the whole scrape - whatever was already collected, from this
+    memory type and any other, still gets saved.
+    """
+    session = make_session()
+    all_items: list[ListingItem] = []
+
+    for page in range(1, max_pages + 1):
+        page_url = base_url if page == 1 else f"{base_url}&{page_param}={page}"
+        try:
+            response = polite_get(session, page_url, min_delay=min_delay, max_delay=max_delay)
+        except requests.exceptions.RequestException as exc:
+            print(f"{memory_type}: request failed on page {page} ({exc}); stopping early")
+            break
+
+        items = parse_page(response.text, memory_type)
+        if not items:
+            break
+        all_items.extend(items)
+
+    return all_items
 
 
 @dataclass

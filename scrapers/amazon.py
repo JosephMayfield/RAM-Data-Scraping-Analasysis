@@ -6,10 +6,14 @@ records a price/rating snapshot for each listing into the SQLite database.
 NOTE: Amazon's anti-bot defenses are considerably more aggressive than
 Newegg's. A request from a datacenter IP (including GitHub Actions
 runners) is much more likely to get served a CAPTCHA/"Robot Check" page
-instead of real results than a blank response - if that happens here, the
-page text won't match any of the CSS selectors below and this scraper will
-just report 0 listings rather than erroring loudly. If runs stay stuck at
-0 for several days in a row, that's the likely cause, and the fix is
+instead of real results than a blank response - if that happens, the page
+text won't match any of the CSS selectors below and this scraper will just
+report 0 listings rather than erroring loudly. Confirmed on the first real
+run: the DDR5 search came back with 0 listings (served something other
+than real results) and the DDR4 search got an outright 503 - both are now
+handled as "stop paginating this memory type" via
+scrapers.common.scrape_search_pages rather than crashing the whole
+scraper. If runs stay stuck at 0 for several days in a row, the fix is
 either slower/less frequent requests or switching to Amazon's official
 Product Advertising API (requires an Amazon Associates account) instead
 of scraping search pages directly.
@@ -29,7 +33,7 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
-from scrapers.common import ListingItem, is_noise, make_session, parse_price, polite_get, save_items
+from scrapers.common import ListingItem, is_noise, parse_price, save_items, scrape_search_pages
 
 DB_PATH = Path(__file__).parent.parent / "data" / "ram_data.db"
 BASE_URL = "https://www.amazon.com"
@@ -110,21 +114,6 @@ def parse_listing_page(html: str, memory_type: str) -> list[ListingItem]:
     return items
 
 
-def scrape(memory_type: str, base_url: str, max_pages: int) -> list[ListingItem]:
-    session = make_session()
-    all_items: list[ListingItem] = []
-
-    for page in range(1, max_pages + 1):
-        page_url = base_url if page == 1 else f"{base_url}&page={page}"
-        response = polite_get(session, page_url, min_delay=3.0, max_delay=7.0)
-        items = parse_listing_page(response.text, memory_type)
-        if not items:
-            break
-        all_items.extend(items)
-
-    return all_items
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Scrape Amazon DDR4/DDR5 RAM listings.")
     parser.add_argument("--db", type=Path, default=DB_PATH)
@@ -136,7 +125,9 @@ def main() -> None:
 
     total = 0
     for memory_type, url in SEARCH_URLS.items():
-        items = scrape(memory_type, url, args.max_pages)
+        items = scrape_search_pages(
+            memory_type, url, args.max_pages, parse_listing_page, min_delay=3.0, max_delay=7.0
+        )
         save_items(conn, items)
         total += len(items)
         print(f"{memory_type}: saved {len(items)} listings")
